@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fatigue Detection System</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.11.0/dist/tf-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.11.0/dist/tf-converter.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.11.0/dist/tf-backend-webgl.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu@4.11.0/dist/tf-backend-cpu.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.11.0/dist/tf-backend-wasm.min.js"></script>
+    <script>
+        // Set WASM path before loading models
+        if (typeof tf !== 'undefined' && tf.wasm) {
+            tf.wasm.setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.11.0/dist/');
+        }
+    </script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.2/dist/face-landmarks-detection.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@500;700;900&display=swap');
+
+        :root {
+            --primary: #00ff88;
+            --danger: #ff3366;
+            --warning: #ffaa00;
+            --bg-dark: #0a0e1a;
+            --bg-card: #151a2e;
+            --text: #e0e6ff;
+            --text-dim: #7a86b8;
+            --border: #1e2842;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-dark);
+            color: var(--text);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 50%, rgba(255, 51, 102, 0.1) 0%, transparent 50%);
+            animation: pulse 8s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: slideDown 0.6s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--primary), #00ccff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 0.8s ease-out backwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card:nth-child(1) {
+            animation-delay: 0.1s;
+        }
+
+        .card:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .card:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+
+        .card:nth-child(4) {
+            animation-delay: 0.4s;
+        }
+
+        .card-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        .status-indicator.active {
+            background: var(--primary);
+            box-shadow: 0 0 12px var(--primary);
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid var(--border);
+        }
+
+        video,
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        canvas {
+            pointer-events: none;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        button {
+            flex: 1;
+            padding: 1rem 2rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        button span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--bg-dark);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 255, 136, 0.4);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 51, 102, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--bg-dark);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+        }
+
+        .metric {
+            background: rgba(0, 255, 136, 0.05);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .metric:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary);
+            box-shadow: 0 8px 24px rgba(0, 255, 136, 0.2);
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            line-height: 1;
+        }
+
+        .metric-unit {
+            font-size: 1rem;
+            color: var(--text-dim);
+            margin-top: 0.25rem;
+        }
+
+        .alert-section {
+            margin-top: 1.5rem;
+        }
+
+        .alert {
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            border-left: 4px solid;
+            animation: slideInRight 0.5s ease-out;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .alert-warning {
+            background: rgba(255, 170, 0, 0.1);
+            border-color: var(--warning);
+            color: var(--warning);
+        }
+
+        .alert-danger {
+            background: rgba(255, 51, 102, 0.1);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .alert-icon {
+            font-size: 1.5rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), #00ccff);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .fatigue-level {
+            margin-top: 1.5rem;
+        }
+
+        .level-indicator {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .level-bar {
+            flex: 1;
+            height: 40px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .level-bar.active {
+            transform: scale(1.05);
+            box-shadow: 0 4px 16px rgba(0, 255, 136, 0.3);
+        }
+
+        .level-bar.low {
+            background: linear-gradient(135deg, #00ff88, #00cc88);
+        }
+
+        .level-bar.medium {
+            background: linear-gradient(135deg, #ffaa00, #ff8800);
+        }
+
+        .level-bar.high {
+            background: linear-gradient(135deg, #ff3366, #cc0044);
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stats-row:last-child {
+            border-bottom: none;
+        }
+
+        .stats-label {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
+        .stats-value {
+            color: var(--text);
+            font-weight: 700;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-dim);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(0, 255, 136, 0.1);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .heart-rate-indicator {
+            position: relative;
+            margin-top: 1rem;
+        }
+
+        .pulse-wave {
+            width: 100%;
+            height: 60px;
+            background: rgba(255, 51, 102, 0.1);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pulse-line {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, var(--danger), transparent);
+            animation: pulse-sweep 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-sweep {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Vigilance</h1>
+            <p class="subtitle">Fatigue Detection System</p>
+        </header>
+
+        <div class="main-grid">
+            <!-- Video Feed -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="status-indicator" id="cameraStatus"></span>
+                    Live Camera Feed
+                </div>
+                <div class="video-container">
+                    <video id="video" autoplay playsinline></video>
+                    <canvas id="canvas"></canvas>
+                </div>
+                <div class="controls">
+                    <button class="btn-primary" id="startBtn">
+                        <span>▶ Start Detection</span>
+                    </button>
+                    <button class="btn-danger" id="stopBtn" disabled>
+                        <span>■ Stop</span>
+                    </button>
+                </div>
+                <div id="loadingMessage" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    Loading AI Model...
+                </div>
+            </div>
+
+            <!-- Real-time Metrics -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="status-indicator" id="detectionStatus"></span>
+                    Real-time Metrics
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <div class="metric-label">Blink Rate</div>
+                        <div class="metric-value" id="blinkRate">0</div>
+                        <div class="metric-unit">blinks/min</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">PERCLOS</div>
+                        <div class="metric-value" id="perclos">0</div>
+                        <div class="metric-unit">%</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Avg Closure</div>
+                        <div class="metric-value" id="avgClosure">0</div>
+                        <div class="metric-unit">ms</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Gaze Stability</div>
+                        <div class="metric-value" id="gazeStability">100</div>
+                        <div class="metric-unit">%</div>
+                    </div>
+                </div>
+
+                <!-- Heart Rate Section -->
+                <div class="metric" style="margin-top: 1.5rem; grid-column: 1 / -1;">
+                    <div class="metric-label">Heart Rate (rPPG)</div>
+                    <div class="metric-value" id="heartRate">--</div>
+                    <div class="metric-unit">BPM</div>
+                    <div class="heart-rate-indicator">
+                        <div class="pulse-wave">
+                            <div class="pulse-line"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts -->
+            <div class="card">
+                <div class="card-title">Alert System</div>
+                <div class="alert-section" id="alertSection">
+                    <div style="text-align: center; color: var(--text-dim); padding: 2rem;">
+                        No alerts - System monitoring...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis Dashboard -->
+            <div class="card">
+                <div class="card-title">Fatigue Analysis</div>
+
+                <div class="fatigue-level">
+                    <div class="metric-label">Current Fatigue Level</div>
+                    <div class="level-indicator">
+                        <div class="level-bar low" id="levelLow"></div>
+                        <div class="level-bar medium" id="levelMedium"></div>
+                        <div class="level-bar high" id="levelHigh"></div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem;">
+                    <div class="stats-row">
+                        <span class="stats-label">Total Blinks</span>
+                        <span class="stats-value" id="totalBlinks">0</span>
+                    </div>
+                    <div class="stats-row">
+                        <span class="stats-label">Long Closures (>500ms)</span>
+                        <span class="stats-value" id="longClosures">0</span>
+                    </div>
+                    <div class="stats-row">
+                        <span class="stats-label">Session Duration</span>
+                        <span class="stats-value" id="sessionTime">00:00</span>
+                    </div>
+                    <div class="stats-row">
+                        <span class="stats-label">Fatigue Score</span>
+                        <span class="stats-value" id="fatigueScore">0/100</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let model = null;
+        let video = null;
+        let canvas = null;
+        let ctx = null;
+        let animationId = null;
+        let isRunning = false;
+
+        // Detection state
+        let blinkCount = 0;
+        let longClosureCount = 0;
+        let sessionStartTime = null;
+        let lastBlinkTime = null;
+        let eyeClosedStartTime = null;
+        let isEyeClosed = false;
+        let closureDurations = [];
+        let gazeHistory = [];
+        let blinkTimestamps = [];
+
+        // Heart rate detection
+        let heartRateBuffer = [];
+        let frameCount = 0;
+        const HEART_RATE_WINDOW = 300; // 10 seconds at 30fps
+
+        // Constants
+        const EYE_ASPECT_RATIO_THRESHOLD = 0.21;
+        const LONG_CLOSURE_THRESHOLD = 500; // ms
+        const PERCLOS_WINDOW = 60000; // 1 minute
+        const GAZE_HISTORY_LENGTH = 30;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            video = document.getElementById('video');
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+
+            document.getElementById('startBtn').addEventListener('click', startDetection);
+            document.getElementById('stopBtn').addEventListener('click', stopDetection);
+        });
+
+        // Calculate Eye Aspect Ratio (EAR)
+        function calculateEAR(eye) {
+            // EAR = (||p2-p6|| + ||p3-p5||) / (2 * ||p1-p4||)
+            if (!eye || eye.length < 6) {
+                console.error('Invalid eye array:', eye);
+                return 0;
+            }
+
+            const vertical1 = distance(eye[1], eye[5]);
+            const vertical2 = distance(eye[2], eye[4]);
+            const horizontal = distance(eye[0], eye[3]);
+
+            if (horizontal === 0 || isNaN(vertical1) || isNaN(vertical2) || isNaN(horizontal)) {
+                return 0;
+            }
+
+            return (vertical1 + vertical2) / (2.0 * horizontal);
+        }
+
+        function distance(p1, p2) {
+            if (!p1 || !p2 || !Number.isFinite(p1.x) || !Number.isFinite(p2.x)) {
+                console.error('Invalid points for distance:', p1, p2);
+                return 0;
+            }
+            return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+        }
+
+        // Extract eye landmarks from face mesh
+        function getEyeLandmarks(keypoints) {
+            // MediaPipe FaceMesh has 478 landmarks
+            // Let's log the structure to see what we're getting
+
+            const leftEyeIndices = [33, 160, 158, 133, 153, 144];
+            const rightEyeIndices = [362, 385, 387, 263, 373, 380];
+
+            const leftEye = leftEyeIndices.map(i => {
+                const p = keypoints[i];
+                return { x: p.x, y: p.y };
+            });
+
+            const rightEye = rightEyeIndices.map(i => {
+                const p = keypoints[i];
+                return { x: p.x, y: p.y };
+            });
+
+            return { leftEye, rightEye };
+
+        }
+
+        // Calculate gaze direction
+        function calculateGaze(keypoints) {
+            const noseTip = keypoints[1];
+            const leftEyeCenter = keypoints[33];
+            const rightEyeCenter = keypoints[263];
+
+            const eyeCenterX = (leftEyeCenter.x + rightEyeCenter.x) / 2;
+            const eyeCenterY = (leftEyeCenter.y + rightEyeCenter.y) / 2;
+
+            return {
+                x: noseTip.x - eyeCenterX,
+                y: noseTip.y - eyeCenterY
+            };
+        }
+
+        // Heart rate detection using rPPG
+        function detectHeartRate(videoFrame) {
+            if (frameCount % 3 !== 0) return; // Sample every 3rd frame
+
+            // Extract face region and calculate average green channel intensity
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = 50;
+            tempCanvas.height = 50;
+
+            // Draw center of face
+            tempCtx.drawImage(video,
+                video.videoWidth * 0.35, video.videoHeight * 0.3,
+                video.videoWidth * 0.3, video.videoHeight * 0.3,
+                0, 0, 50, 50
+            );
+
+            const imageData = tempCtx.getImageData(0, 0, 50, 50);
+            const data = imageData.data;
+
+            let greenSum = 0;
+            for (let i = 1; i < data.length; i += 4) {
+                greenSum += data[i]; // Green channel
+            }
+
+            const avgGreen = greenSum / (50 * 50);
+            heartRateBuffer.push(avgGreen);
+
+            if (heartRateBuffer.length > HEART_RATE_WINDOW) {
+                heartRateBuffer.shift();
+
+                // Simple FFT approximation for heart rate
+                const bpm = estimateBPM(heartRateBuffer);
+                if (bpm > 40 && bpm < 180) { // Valid heart rate range
+                    document.getElementById('heartRate').textContent = Math.round(bpm);
+                }
+            }
+        }
+
+        // Estimate BPM from signal buffer
+        function estimateBPM(buffer) {
+            // Detrend the signal
+            const mean = buffer.reduce((a, b) => a + b) / buffer.length;
+            const detrended = buffer.map(v => v - mean);
+
+            // Find peaks (simplified peak detection)
+            let peaks = 0;
+            for (let i = 1; i < detrended.length - 1; i++) {
+                if (detrended[i] > detrended[i - 1] && detrended[i] > detrended[i + 1] && detrended[i] > 0) {
+                    peaks++;
+                }
+            }
+
+            // Convert to BPM (assuming 30 fps and 10 second window)
+            const bpm = (peaks / 10) * 60;
+            return bpm;
+        }
+
+        // Main detection loop
+        let loopCounter = 0;
+        async function detectFatigue() {
+            if (!isRunning) return;
+
+            try {
+                loopCounter++;
+
+                // Check if video is ready
+                if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) {
+                    animationId = requestAnimationFrame(detectFatigue);
+                    return;
+                }
+
+                // Clear canvas first
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Pass video element directly (not wrapped in options)
+                const predictions = await model.estimateFaces(video);
+
+                if (loopCounter % 30 === 0) {
+                    console.log('✓ Predictions:', predictions.length, 'faces');
+                }
+
+                if (predictions.length > 0) {
+                    const face = predictions[0];
+                    const keypoints = face.keypoints;
+
+                    if (loopCounter === 31) {
+                        console.log('📊 First keypoint:', keypoints[0]);
+                        console.log('📊 Keypoint 33 (left eye):', keypoints[33]);
+                        console.log('📊 Keypoint 263 (right eye):', keypoints[263]);
+                    }
+
+                    // Draw ALL face points in light green
+                    ctx.fillStyle = 'rgba(0, 255, 136, 0.3)';
+                    keypoints.forEach(point => {
+                        if (point && point.x && point.y) {
+                            ctx.beginPath();
+                            ctx.arc(point.x, point.y, 1, 0, 2 * Math.PI);
+                            ctx.fill();
+                        }
+                    });
+
+                    // EYE LANDMARKS - Draw BIG GREEN CIRCLES
+                    const leftEyeIndices = [33, 160, 158, 133, 153, 144];
+                    const rightEyeIndices = [362, 385, 387, 263, 373, 380];
+
+                    ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+                    ctx.strokeStyle = 'rgba(0, 255, 0, 1)';
+                    ctx.lineWidth = 3;
+
+                    // Draw left eye
+                    leftEyeIndices.forEach(idx => {
+                        const point = keypoints[idx];
+                        if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) {
+                            ctx.beginPath();
+                            ctx.arc(point.x, point.y, 8, 0, 2 * Math.PI);
+                            ctx.fill();
+                            ctx.stroke();
+                        }
+                    });
+
+                    // Draw right eye
+                    rightEyeIndices.forEach(idx => {
+                        const point = keypoints[idx];
+                        if (point && point.x && point.y) {
+                            ctx.beginPath();
+                            ctx.arc(point.x, point.y, 8, 0, 2 * Math.PI);
+                            ctx.fill();
+                            ctx.stroke();
+                        }
+                    });
+
+                    // Log coordinates every second
+                    if (loopCounter % 30 === 0) {
+                        const leftEye33 = keypoints[33];
+                        const rightEye263 = keypoints[263];
+                        console.log('👁️ Left eye (33):', leftEye33 ? `x:${leftEye33.x.toFixed(1)} y:${leftEye33.y.toFixed(1)}` : 'null');
+                        console.log('👁️ Right eye (263):', rightEye263 ? `x:${rightEye263.x.toFixed(1)} y:${rightEye263.y.toFixed(1)}` : 'null');
+                    }
+
+                } else {
+                    // No face detected
+                    ctx.fillStyle = 'rgba(255, 170, 0, 0.8)';
+                    ctx.font = '20px JetBrains Mono';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('No face detected', canvas.width / 2, canvas.height / 2);
+                }
+
+            } catch (error) {
+                console.error('❌ Error in detection loop:', error);
+            }
+
+            animationId = requestAnimationFrame(detectFatigue);
+        }
+
+        // Update UI metrics
+        function updateMetrics() {
+            const currentTime = Date.now();
+            const oneMinuteAgo = currentTime - 60000;
+
+            // Blink rate (blinks per minute)
+            const recentBlinks = blinkTimestamps.filter(t => t > oneMinuteAgo);
+            const blinkRate = recentBlinks.length;
+            document.getElementById('blinkRate').textContent = blinkRate;
+
+            // PERCLOS (Percentage of Eye Closure)
+            const recentClosures = closureDurations.filter(c => c.timestamp > oneMinuteAgo);
+            const totalClosureTime = recentClosures.reduce((sum, c) => sum + c.duration, 0);
+            const perclos = Math.min(100, (totalClosureTime / 600) / 100); // As percentage
+            document.getElementById('perclos').textContent = perclos.toFixed(1);
+
+            // Average closure duration
+            const avgClosure = recentClosures.length > 0
+                ? recentClosures.reduce((sum, c) => sum + c.duration, 0) / recentClosures.length
+                : 0;
+            document.getElementById('avgClosure').textContent = Math.round(avgClosure);
+
+            // Gaze stability
+            if (gazeHistory.length > 1) {
+                let totalVariance = 0;
+                for (let i = 1; i < gazeHistory.length; i++) {
+                    const dx = gazeHistory[i].x - gazeHistory[i - 1].x;
+                    const dy = gazeHistory[i].y - gazeHistory[i - 1].y;
+                    totalVariance += Math.sqrt(dx * dx + dy * dy);
+                }
+                const avgVariance = totalVariance / gazeHistory.length;
+                const stability = Math.max(0, 100 - avgVariance * 100);
+                document.getElementById('gazeStability').textContent = Math.round(stability);
+            }
+
+            // Session stats
+            document.getElementById('totalBlinks').textContent = blinkCount;
+            document.getElementById('longClosures').textContent = longClosureCount;
+
+            if (sessionStartTime) {
+                const elapsed = currentTime - sessionStartTime;
+                const minutes = Math.floor(elapsed / 60000);
+                const seconds = Math.floor((elapsed % 60000) / 1000);
+                document.getElementById('sessionTime').textContent =
+                    `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+        }
+
+        // Update fatigue level visualization
+        function updateFatigueLevel() {
+            const blinkRate = parseInt(document.getElementById('blinkRate').textContent);
+            const perclos = parseFloat(document.getElementById('perclos').textContent);
+            const gazeStability = parseInt(document.getElementById('gazeStability').textContent);
+
+            // Calculate fatigue score (0-100)
+            let fatigueScore = 0;
+
+            // Low blink rate (<15/min) or high blink rate (>30/min) indicates fatigue
+            if (blinkRate < 15 || blinkRate > 30) fatigueScore += 25;
+
+            // High PERCLOS indicates drowsiness
+            if (perclos > 15) fatigueScore += 35;
+            else if (perclos > 10) fatigueScore += 20;
+
+            // Low gaze stability indicates distraction/fatigue
+            if (gazeStability < 70) fatigueScore += 25;
+            else if (gazeStability < 85) fatigueScore += 15;
+
+            // Long closures
+            if (longClosureCount > 3) fatigueScore += 15;
+
+            fatigueScore = Math.min(100, fatigueScore);
+            document.getElementById('fatigueScore').textContent = `${fatigueScore}/100`;
+
+            // Update level indicators
+            document.getElementById('levelLow').classList.toggle('active', fatigueScore < 33);
+            document.getElementById('levelMedium').classList.toggle('active', fatigueScore >= 33 && fatigueScore < 66);
+            document.getElementById('levelHigh').classList.toggle('active', fatigueScore >= 66);
+
+            // Generate alerts
+            if (fatigueScore >= 66 && Date.now() % 10000 < 100) {
+                addAlert('danger', '⚠️ HIGH FATIGUE DETECTED - Take a break immediately!');
+            } else if (fatigueScore >= 33 && Date.now() % 20000 < 100) {
+                addAlert('warning', '⚡ Moderate fatigue detected - Consider taking a break soon');
+            }
+        }
+
+        // Add alert to UI
+        function addAlert(type, message) {
+            const alertSection = document.getElementById('alertSection');
+            const existingAlerts = alertSection.querySelectorAll('.alert');
+
+            // Remove placeholder
+            if (existingAlerts.length === 0) {
+                alertSection.innerHTML = '';
+            }
+
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <span class="alert-icon">${type === 'danger' ? '🚨' : '⚠️'}</span>
+                <span>${message}</span>
+            `;
+
+            alertSection.insertBefore(alert, alertSection.firstChild);
+
+            // Keep only last 5 alerts
+            const allAlerts = alertSection.querySelectorAll('.alert');
+            if (allAlerts.length > 5) {
+                allAlerts[allAlerts.length - 1].remove();
+            }
+        }
+
+        // Start detection
+        async function startDetection() {
+            try {
+                document.getElementById('loadingMessage').style.display = 'block';
+                document.getElementById('startBtn').disabled = true;
+
+                // Start webcam FIRST - before loading model
+                console.log('Requesting camera access...');
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    }
+                });
+                video.srcObject = stream;
+
+                await new Promise((resolve, reject) => {
+                    video.onloadedmetadata = () => {
+                        console.log('✓ Video metadata loaded');
+                        video.play()
+                            .then(() => {
+                                console.log('✓ Video playing');
+                                resolve();
+                            })
+                            .catch(reject);
+                    };
+                    video.onerror = reject;
+                    setTimeout(() => reject(new Error('Video loading timeout')), 10000);
+                });
+
+                // Wait for video to actually start playing
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                console.log(`✓ Video dimensions: ${video.videoWidth}x${video.videoHeight}`);
+                console.log('Video element type:', video.constructor.name);
+                console.log('Video ready state:', video.readyState);
+
+                // NOW initialize TensorFlow.js backend
+                if (!model) {
+                    console.log('Available backends:', tf.engine().backendNames());
+
+                    let workingBackend = null;
+
+                    // Try backends in order of preference
+                    const backends = ['cpu', 'wasm', 'webgl']; // Start with CPU since WebGL is clearly broken
+                    for (const backend of backends) {
+                        console.log(`Attempting to use ${backend} backend...`);
+
+                        try {
+                            // Force remove existing backend first
+                            const currentBackend = tf.getBackend();
+                            if (currentBackend) {
+                                console.log('Removing current backend:', currentBackend);
+                            }
+
+                            await tf.setBackend(backend);
+
+                            // Don't call ready() for webgl since it fails
+                            if (backend !== 'webgl') {
+                                await tf.ready();
+                            }
+
+                            // Test with actual tensor operation
+                            const testTensor = tf.zeros([1, 1]);
+                            const testData = await testTensor.data();
+                            testTensor.dispose();
+
+                            if (testData[0] === 0) {
+                                console.log(`✓ Successfully using ${backend} backend`);
+                                workingBackend = backend;
+                                break;
+                            } else {
+                                throw new Error('Backend test failed');
+                            }
+                        } catch (e) {
+                            console.warn(`✗ ${backend} backend failed:`, e.message);
+                            continue;
+                        }
+                    }
+
+                    if (!workingBackend) {
+                        throw new Error('No working TensorFlow.js backend available. Please try Chrome or Firefox.');
+                    }
+
+                    console.log('Loading face detection model...');
+                    model = await faceLandmarksDetection.createDetector(
+                        faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
+                        {
+                            runtime: 'tfjs',
+                            refineLandmarks: true,
+                            maxFaces: 1
+                        }
+                    );
+                    console.log('✓ Model loaded successfully on', workingBackend, 'backend');
+                }
+
+                // Initialize session
+                sessionStartTime = Date.now();
+                isRunning = true;
+
+                document.getElementById('loadingMessage').style.display = 'none';
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('cameraStatus').classList.add('active');
+                document.getElementById('detectionStatus').classList.add('active');
+
+                // Start detection loop
+                console.log('✓ Starting detection loop...');
+                detectFatigue();
+
+            } catch (error) {
+                console.error('❌ Error starting detection:', error);
+                let errorMessage = 'Error starting detection. ';
+
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += 'Camera access was denied. Please allow camera permissions and reload.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += 'No camera found on this device.';
+                } else if (error.message && error.message.includes('backend')) {
+                    errorMessage += 'TensorFlow.js backend initialization failed. Try using Chrome or Firefox.';
+                } else {
+                    errorMessage += error.message || 'Unknown error occurred. Check console for details.';
+                }
+
+                alert(errorMessage);
+                document.getElementById('loadingMessage').style.display = 'none';
+                document.getElementById('startBtn').disabled = false;
+            }
+        }
+
+        // Stop detection
+        function stopDetection() {
+            isRunning = false;
+
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('cameraStatus').classList.remove('active');
+            document.getElementById('detectionStatus').classList.remove('active');
+        }
+    </script>
+</body>
+
+</html>
