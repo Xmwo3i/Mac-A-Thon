@@ -69,6 +69,3 @@ def get_mood_music(focus_level):
 get_mood_music(2)
 
 
-//
-// Created by pumpk on 2/7/2026.
-//
