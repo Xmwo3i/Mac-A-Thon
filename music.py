@@ -27,7 +27,7 @@ FocusTags = {
 
 def get_song_url(mood_tag):
     # Fetch a song URL based on the mood tag
-    
+
     lfm_url = f"https://ws.audioscrobbler.com/2.0/?method=tag.gettoptracks&tag={mood_tag}&api_key={LASTFM_API_KEY}&format=json&limit=1"
     
     data = requests.get(lfm_url).json()
