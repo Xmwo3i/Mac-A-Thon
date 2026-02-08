@@ -439,13 +439,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 📧 Contact & Support
-
-- **Issues:** [GitHub Issues](https://github.com/yourusername/focus-buddy/issues)
-- **Email:** your.email@example.com
-- **Twitter:** @yourhandle
-
----
 
 ## ⭐ Show Your Support
 
@@ -453,6 +446,6 @@ If Focus Buddy helps you stay focused and productive, give it a ⭐ on GitHub!
 
 ---
 
-**Made with ❤️ by [Your Name]**
+**Made with ❤️**
 
 *Stay focused, stay productive!* 🎯🎵
