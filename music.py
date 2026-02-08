@@ -2,9 +2,17 @@ import requests
 import vlc
 import time
 import random
+import os
+from dotenv import load_dotenv
+
+# Load the variables from the .env file into the system environment
+load_dotenv()
+
+# Use os.getenv to grab the specific variable
+api_key = os.getenv("LASTFM_API_KEY")
 
 # Constants
-LASTFM_API_KEY = '3852c780a1d584dd6528dbdaf6f74b57'
+LASTFM_API_KEY = api_key
 
 # Low Energy >> music to boost energy and motivation
 # Deep Focus >> music to enhance concentration and block distractions
