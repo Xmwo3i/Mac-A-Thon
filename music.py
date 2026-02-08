@@ -52,15 +52,21 @@ def main_loop():
 
     while True:
         
-        level = int(input("Enter Focus (1-10): ")) # This will be replaced by actual monitoring from Presage
+        # Poll metrics from biometrics
+        #hr, blinks_per_min = bio.get_metrics()  # Placeholder for actual biometrics function
+
+        hr = random.uniform(40, 120)  # Simulated heart rate
+        blinks_per_min = random.uniform(5, 30)  # Simulated blink rate
         
-        # Determine the mood based on the focus level
-        if level < 3: 
-            mood = random.choice(FocusTags["low_energy"])
-        elif level < 7:
-            mood = random.choice(FocusTags["deep_focus"])
-        else:
+        # Heuristic mapping from metrics to mood tag
+        if hr > 95 or blinks_per_min > 20:
             mood = random.choice(FocusTags["high_stress"])
+        elif 12 <= blinks_per_min <= 20 and 50 <= hr <= 95:
+            mood = random.choice(FocusTags["deep_focus"])
+        elif hr < 50 and blinks_per_min < 12:
+            mood = random.choice(FocusTags["low_energy"])
+        else:
+            mood = random.choice(FocusTags["deep_focus"])
 
         # Only change the song if the mood actually changed
         if mood != last_mood:
@@ -68,13 +74,17 @@ def main_loop():
                 current_player.stop() # Stop the old song
             
             # Fetch and play the new song
-            print(f"Switching to {mood} music...")
-            url = get_song_url(level)
+            print(f"Switching to {mood} music... (HR={hr:.1f}, blinks/min={blinks_per_min:.0f})")
+            url = get_song_url(mood)
             current_player = vlc.MediaPlayer(url)
             current_player.play()
             last_mood = mood
         else:
-            print("Mood same as before, keeping the vibe.")
+            print(f"Mood same ({mood}). HR={hr:.1f}, blinks/min={blinks_per_min:.0f}")
+            
+        # Avoid changing too frequently
+        time.sleep(5)
+
 
 if __name__ == "__main__":
     main_loop()
